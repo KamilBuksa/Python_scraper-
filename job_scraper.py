@@ -19,25 +19,25 @@ class JobScraper:
         self.session.headers.update(self.headers)
 
     def get_page(self, page=1):
-        """Fetch a single page of job listings"""
+        """Pobiera pojedynczą stronę z listą ofert pracy"""
         try:
             if page > 1:
                 url = f"{self.base_url}?strona={page}"
             else:
                 url = self.base_url
                 
-            print(f"Scraping page {page}")
+            print(f"Pobieram stronę {page}")
             response = self.session.get(url)
             response.raise_for_status()
             return BeautifulSoup(response.text, 'html.parser')
         except Exception as e:
-            print(f"Error fetching page {page}: {e}")
+            print(f"Błąd podczas pobierania strony {page}: {e}")
             return None
 
     def parse_job_listing(self, job_item):
-        """Parse a single job listing"""
+        """Parsuje pojedynczą ofertę pracy"""
         try:
-            # Find the job title and URL
+            # Znajdujemy tytuł i URL oferty
             title_element = job_item.find('h2')
             if not title_element:
                 return None
@@ -49,7 +49,7 @@ class JobScraper:
             if not url.startswith('http'):
                 url = 'https://ogloszenia.trojmiasto.pl' + url
 
-            # Get basic job details
+            # Pobieramy podstawowe informacje o ofercie
             location = None
             location_div = job_item.find('div', class_='list__location')
             if location_div:
@@ -60,22 +60,22 @@ class JobScraper:
             if company_div:
                 company = company_div.get_text(strip=True)
 
-            # Get salary if available
+            # Pobieramy wynagrodzenie jeśli dostępne
             salary = None
             salary_div = job_item.find('div', class_='list__salary')
             if salary_div:
                 salary = salary_div.get_text(strip=True)
 
-            # Get posting date
+            # Pobieramy datę dodania oferty
             date_posted = None
             date_div = job_item.find('div', class_='list__date')
             if date_div:
                 date_posted = date_div.get_text(strip=True)
 
-            # Get job details from the job's page
+            # Pobieramy szczegóły oferty ze strony oferty
             job_details = self.get_job_description(url) if url else {}
 
-            # Combine all information
+            # Łączymy wszystkie informacje
             job_data = {
                 'title': title,
                 'location': location or job_details.get('location'),
@@ -96,11 +96,11 @@ class JobScraper:
             return job_data
 
         except Exception as e:
-            print(f"Error parsing job listing: {e}")
+            print(f"Błąd podczas parsowania oferty: {e}")
             return None
 
     def get_job_description(self, url):
-        """Get full job description from the job's page"""
+        """Pobiera pełny opis oferty ze strony oferty"""
         try:
             sleep(random.uniform(0, 0.5))  # Zmniejszony czas oczekiwania
             response = self.session.get(url)
@@ -109,13 +109,13 @@ class JobScraper:
             
             job_details = {}
             
-            # Find the main job description content
+            # Znajdujemy główną treść opisu oferty
             content = soup.find('div', class_='ogl__description')
             if content:
                 description_text = content.get_text(strip=True)
                 job_details['description'] = description_text
                 
-                # Extract salary range from description
+                # Wyciągamy zakres wynagrodzenia z opisu
                 salary_match = re.search(r'Kwota od (\d+)\s*(?:tysięcy|tys\.?)\s*do\s*(\d+)\s*(?:tysięcy|tys\.?)', description_text)
                 if salary_match:
                     job_details['salary_range'] = {
@@ -124,23 +124,23 @@ class JobScraper:
                         'currency': 'PLN'
                     }
                 
-                # Extract working hours
+                # Wyciągamy godziny pracy
                 hours_match = re.search(r'(?:Około|Ok\.|około)\s*(\d+)\s*h(?:odzin)?\s*(?:w|na)\s*miesiąc', description_text)
                 if hours_match:
                     job_details['monthly_hours'] = int(hours_match.group(1))
                 
-                # Extract work schedule
+                # Wyciągamy harmonogram pracy
                 schedule_match = re.search(r'(?:Zjazdy|System|Praca)\s*(\d+/\d+)(?:\s*(?:tygodnie|dni))?', description_text)
                 if schedule_match:
                     job_details['work_schedule'] = schedule_match.group(1)
             
-            # Extract additional details from oglDetails panel
+            # Wyciągamy dodatkowe szczegóły z panelu oglDetails
             details_panel = soup.find('div', class_='oglDetails')
             if details_panel:
-                # Find all field containers
+                # Znajdujemy wszystkie kontenery pól
                 fields = details_panel.find_all('div', class_='oglField')
                 for field in fields:
-                    # Get field name and value
+                    # Pobieramy nazwę i wartość pola
                     name_div = field.find('div', class_='oglField__name')
                     value_divs = field.find_all('div', class_='oglField__value')
                     
@@ -149,7 +149,7 @@ class JobScraper:
                         field_values = [v.get_text(strip=True) for v in value_divs]
                         field_value = ', '.join(field_values) if field_values else None
                         
-                        # Map field names to our structure
+                        # Mapujemy nazwy pól do naszej struktury
                         if 'branża' in field_name or 'kategoria' in field_name:
                             job_details['industry'] = field_value
                         elif 'poziom stanowiska' in field_name:
@@ -165,28 +165,28 @@ class JobScraper:
                         elif 'praca za granicą' in field_name:
                             job_details['foreign_job'] = field_value.lower() == 'tak'
             
-            # Get salary information if available
+            # Pobieramy informacje o wynagrodzeniu jeśli dostępne
             salary_div = soup.find('div', class_='list__salary')
             if salary_div:
                 job_details['salary'] = salary_div.get_text(strip=True)
             
-            # Get location information with full address
+            # Pobieramy informacje o lokalizacji z pełnym adresem
             location_div = soup.find('span', class_='topBar__item--address')
             if location_div:
                 location_text = location_div.get_text(strip=True)
-                # Split into city and street
+                # Dzielimy na miasto i ulicę
                 location_parts = location_text.split('\n')
                 if len(location_parts) > 1:
                     job_details['city'] = location_parts[0].strip()
                     job_details['street'] = location_parts[1].strip()
                 job_details['location'] = location_text
             
-            # Get company name
+            # Pobieramy nazwę firmy
             company_div = soup.find('div', class_='list__company')
             if company_div:
                 job_details['company'] = company_div.get_text(strip=True)
             
-            # Get posting date, expiration date and offer ID
+            # Pobieramy datę dodania, aktualizacji i ID oferty
             stats_div = soup.find('div', class_='oglStats')
             if stats_div:
                 date_elements = stats_div.find_all('p')
@@ -202,12 +202,12 @@ class JobScraper:
             return job_details
             
         except Exception as e:
-            print(f"Error getting job description: {e}")
+            print(f"Błąd podczas pobierania opisu oferty: {e}")
             return {}
 
     def scrape_jobs(self, num_pages=5, max_jobs=10):
-        """Scrape specified number of pages"""
-        print(f"Starting to scrape jobs from trojmiasto.pl (max {max_jobs} jobs)...")
+        """Scrapuje określoną liczbę stron z ofertami"""
+        print(f"Rozpoczynam scrapowanie ofert z trojmiasto.pl (max {max_jobs} ofert)...")
         
         total_jobs_scraped = 0
         errors = 0
@@ -219,12 +219,12 @@ class JobScraper:
             try:
                 soup = self.get_page(page)
                 if not soup:
-                    print(f"\nSkipping page {page} due to error")
+                    print(f"\nPomijam stronę {page} z powodu błędu")
                     continue
                     
-                # Find all job listings on the page
+                # Znajdujemy wszystkie oferty na stronie
                 job_listings = soup.find_all('div', class_='list__item')
-                print(f"\nFound {len(job_listings)} jobs on page {page}")
+                print(f"\nZnaleziono {len(job_listings)} ofert na stronie {page}")
                 
                 for job_item in job_listings:
                     if total_jobs_scraped >= max_jobs:
@@ -235,28 +235,28 @@ class JobScraper:
                         if job_data:
                             self.jobs.append(job_data)
                             total_jobs_scraped += 1
-                            print(f"Progress: {total_jobs_scraped}/{max_jobs} jobs scraped", end='\r')
+                            print(f"Postęp: {total_jobs_scraped}/{max_jobs} ofert zescrapowanych", end='\r')
                     except Exception as e:
                         errors += 1
-                        print(f"\nError parsing job listing: {e}")
+                        print(f"\nBłąd podczas parsowania oferty: {e}")
                         continue
                     
                 sleep(random.uniform(0, 0.5))  # Zmniejszony czas oczekiwania
                 
             except Exception as e:
                 errors += 1
-                print(f"\nError scraping page {page}: {e}")
+                print(f"\nBłąd podczas scrapowania strony {page}: {e}")
                 continue
             
-        print(f"\nScraped {total_jobs_scraped} jobs in total")
+        print(f"\nZescrapowano {total_jobs_scraped} ofert w sumie")
         if errors > 0:
-            print(f"Encountered {errors} errors during scraping")
+            print(f"Napotkano {errors} błędów podczas scrapowania")
         return self.jobs
 
     def export_to_csv(self):
-        """Export scraped jobs to CSV file"""
+        """Eksportuje zescrapowane oferty do pliku CSV"""
         if not self.jobs:
-            print("No jobs to export")
+            print("Brak ofert do eksportu")
             return
             
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -264,23 +264,23 @@ class JobScraper:
         
         df = pd.DataFrame(self.jobs)
         df.to_csv(filename, index=False, encoding='utf-8')
-        print(f"Exported {len(self.jobs)} jobs to {filename}")
+        print(f"Wyeksportowano {len(self.jobs)} ofert do {filename}")
         return filename
 
     def save_to_csv(self, filename='jobs.csv'):
-        """Save scraped jobs to CSV file"""
+        """Zapisuje zescrapowane oferty do pliku CSV"""
         if not self.jobs:
-            print("No jobs to save!")
+            print("Brak ofert do zapisania!")
             return
             
         df = pd.DataFrame(self.jobs)
         df.to_csv(filename, index=False, encoding='utf-8')
-        print(f"Saved {len(self.jobs)} jobs to {filename}")
+        print(f"Zapisano {len(self.jobs)} ofert do {filename}")
 
     def get_jobs_summary(self):
-        """Return basic statistics about scraped jobs"""
+        """Zwraca podstawowe statystyki o zescrapowanych ofertach"""
         if not self.jobs:
-            return "No jobs scraped yet!"
+            return "Nie zescrapowano jeszcze żadnych ofert!"
             
         df = pd.DataFrame(self.jobs)
         

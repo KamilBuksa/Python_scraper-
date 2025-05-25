@@ -61,7 +61,7 @@ class DatabaseManager:
         
         total_jobs = len(df)
         
-        # Basic statistics
+        # Podstawowe statystyki
         summary = {
             'total_jobs': total_jobs,
             'contract_types': df['contract_type'].value_counts().to_dict(),
@@ -73,7 +73,7 @@ class DatabaseManager:
             'salary_stats': df['salary'].value_counts().to_dict(),
         }
         
-        # Advanced Pandas Statistics
+        # Zaawansowane statystyki z użyciem pandas
         if 'salary_range' in df.columns:
             salary_df = pd.json_normalize(df['salary_range'].dropna())
             if not salary_df.empty:
@@ -86,11 +86,11 @@ class DatabaseManager:
                     'std_max_salary': int(salary_df['max'].std())
                 }
         
-        # Work Time Analysis
+        # Analiza czasu pracy
         if 'work_time' in df.columns:
             summary['work_time_analysis'] = df['work_time'].value_counts().to_dict()
         
-        # Industry Trends
+        # Trendy w branżach
         if 'industry' in df.columns and 'date_posted' in df.columns:
             df['date_posted'] = pd.to_datetime(df['date_posted'], dayfirst=True)
             industry_by_date = df.groupby(['industry', df['date_posted'].dt.date]).size().unstack()
@@ -99,7 +99,7 @@ class DatabaseManager:
                 'top_growing_industries': industry_by_date.iloc[:, -1].nlargest(5).index.tolist()
             }
         
-        # Location Analysis
+        # Analiza lokalizacji
         if 'location' in df.columns:
             location_stats = df['location'].value_counts()
             summary['location_analysis'] = {
