@@ -71,11 +71,6 @@ def main():
         for level, count in summary['position_levels'].items():
             print(f"- {level}: {count}")
             
-        if 'benefits_distribution' in summary and summary['benefits_distribution']:
-            print("\nRozkład benefitów:")
-            for benefit, count in summary['benefits_distribution'].items():
-                print(f"- {benefit}: {count}")
-                
         if 'advanced_salary_stats' in summary:
             print("\nZaawansowane statystyki wynagrodzeń (PLN):")
             stats = summary['advanced_salary_stats']

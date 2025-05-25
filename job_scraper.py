@@ -55,11 +55,6 @@ class JobScraper:
             if location_div:
                 location = location_div.get_text(strip=True)
 
-            company = None
-            company_div = job_item.find('div', class_='list__company')
-            if company_div:
-                company = company_div.get_text(strip=True)
-
             # Pobieramy wynagrodzenie jeśli dostępne
             salary = None
             salary_div = job_item.find('div', class_='list__salary')
@@ -88,7 +83,6 @@ class JobScraper:
                 'work_time': job_details.get('work_time'),
                 'industry': job_details.get('industry'),
                 'position_level': job_details.get('position_level'),
-                'experience_required': job_details.get('experience_required'),
                 'description': job_details.get('description'),
                 'scraped_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
@@ -154,21 +148,12 @@ class JobScraper:
                             job_details['industry'] = field_value
                         elif 'poziom stanowiska' in field_name:
                             job_details['position_level'] = field_value
-                        elif 'wymagane doświadczenie' in field_name:
-                            job_details['experience_required'] = field_value
                         elif 'wymiar pracy' in field_name:
                             job_details['work_time'] = field_value
                         elif 'rodzaj umowy' in field_name:
                             job_details['contract_type'] = field_value
                         elif 'charakter pracy' in field_name:
                             job_details['work_mode'] = field_value
-                        elif 'praca za granicą' in field_name:
-                            job_details['foreign_job'] = field_value.lower() == 'tak'
-            
-            # Pobieramy informacje o wynagrodzeniu jeśli dostępne
-            salary_div = soup.find('div', class_='list__salary')
-            if salary_div:
-                job_details['salary'] = salary_div.get_text(strip=True)
             
             # Pobieramy informacje o lokalizacji z pełnym adresem
             location_div = soup.find('span', class_='topBar__item--address')
@@ -180,11 +165,6 @@ class JobScraper:
                     job_details['city'] = location_parts[0].strip()
                     job_details['street'] = location_parts[1].strip()
                 job_details['location'] = location_text
-            
-            # Pobieramy nazwę firmy
-            company_div = soup.find('div', class_='list__company')
-            if company_div:
-                job_details['company'] = company_div.get_text(strip=True)
             
             # Pobieramy datę dodania, aktualizacji i ID oferty
             stats_div = soup.find('div', class_='oglStats')
