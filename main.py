@@ -50,20 +50,9 @@ def main():
         summary = db.get_jobs_summary()
         
         print(f"Total jobs in database: {summary['total_jobs']}")
-        print(f"Unique companies: {summary['unique_companies']}")
-        print(f"Unique locations: {summary['unique_locations']}")
-        print(f"Jobs abroad: {summary['foreign_jobs_count']}")
         
         if summary['average_monthly_hours']:
             print(f"\nAverage monthly hours: {summary['average_monthly_hours']}")
-        
-        print("\nTop 10 cities:")
-        for city, count in summary['top_cities'].items():
-            print(f"- {city}: {count}")
-            
-        print("\nWork schedules:")
-        for schedule, count in summary['work_schedules'].items():
-            print(f"- {schedule}: {count}")
             
         if summary['salary_range_statistics']:
             print("\nSalary statistics (PLN):")
@@ -73,17 +62,9 @@ def main():
             print(f"- Average minimum: {stats['avg_min']:,.2f}")
             print(f"- Average maximum: {stats['avg_max']:,.2f}")
             
-        print("\nTop 5 job sources:")
-        for source, count in summary['top_sources'].items():
-            print(f"- {source}: {count}")
-            
         print("\nTop 10 locations:")
         for location, count in summary['jobs_by_location'].items():
             print(f"- {location}: {count}")
-            
-        print("\nMost active companies:")
-        for company, count in summary['most_active_companies'].items():
-            print(f"- {company}: {count}")
             
         print("\nContract types:")
         for contract_type, count in summary['contract_types'].items():
