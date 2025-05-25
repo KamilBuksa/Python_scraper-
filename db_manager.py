@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from datetime import datetime
 import pandas as pd
+import numpy as np
 
 class DatabaseManager:
     def __init__(self):
@@ -45,7 +46,7 @@ class DatabaseManager:
         
     def export_to_csv(self, filename):
         """Eksportuje dane z bazy do pliku CSV"""
-        jobs_data = list(self.jobs.find({}, {'_id': 0}))  # pomijamy pole _id
+        jobs_data = list(self.jobs.find({}, {'_id': 0, 'company': 0}))  # pomijamy pola _id i company
         if jobs_data:
             df = pd.DataFrame(jobs_data)
             df.to_csv(filename, index=False, encoding='utf-8')
@@ -55,162 +56,63 @@ class DatabaseManager:
         
     def get_jobs_summary(self):
         """Zwraca podsumowanie ofert z bazy danych"""
-        total_jobs = self.jobs.count_documents({})
-        unique_companies = len(self.jobs.distinct('company'))
-        unique_locations = len(self.jobs.distinct('location'))
+        jobs_data = list(self.jobs.find({}, {'_id': 0}))
+        df = pd.DataFrame(jobs_data)
         
-        # Top 5 źródeł ogłoszeń
-        top_sources = {}
-        for source in self.jobs.aggregate([
-            {'$group': {'_id': '$source', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}},
-            {'$limit': 5}
-        ]):
-            top_sources[source['_id']] = source['count']
-            
-        # Top 10 lokalizacji
-        jobs_by_location = {}
-        for loc in self.jobs.aggregate([
-            {'$group': {'_id': '$location', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}},
-            {'$limit': 10}
-        ]):
-            jobs_by_location[loc['_id']] = loc['count']
-            
-        # Top 5 firm
-        most_active_companies = {}
-        for company in self.jobs.aggregate([
-            {'$group': {'_id': '$company', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}},
-            {'$limit': 5}
-        ]):
-            most_active_companies[company['_id']] = company['count']
-            
-        # Statystyki typów umów
-        contract_types = {}
-        for ct in self.jobs.aggregate([
-            {'$group': {'_id': '$contract_type', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            contract_types[ct['_id']] = ct['count']
-            
-        # Statystyki trybów pracy
-        work_modes = {}
-        for wm in self.jobs.aggregate([
-            {'$group': {'_id': '$work_mode', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            work_modes[wm['_id']] = wm['count']
-            
-        # Statystyki branż
-        industries = {}
-        for ind in self.jobs.aggregate([
-            {'$group': {'_id': '$industry', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            industries[ind['_id']] = ind['count']
-            
-        # Statystyki poziomów stanowisk
-        position_levels = {}
-        for pl in self.jobs.aggregate([
-            {'$group': {'_id': '$position_level', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            position_levels[pl['_id']] = pl['count']
-            
-        # Statystyki benefitów
-        benefits_distribution = {}
-        for benefit in self.jobs.aggregate([
-            {'$unwind': '$benefits'},
-            {'$group': {'_id': '$benefits', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            benefits_distribution[benefit['_id']] = benefit['count']
-            
-        # Statystyki wynagrodzeń
-        salary_stats = {}
-        for salary in self.jobs.aggregate([
-            {'$group': {'_id': '$salary', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            salary_stats[salary['_id']] = salary['count']
-            
-        # Nowe statystyki
+        total_jobs = len(df)
         
-        # Statystyki pracy za granicą
-        foreign_jobs = self.jobs.count_documents({'foreign_job': True})
-        
-        # Średnia liczba godzin w miesiącu
-        avg_hours = None
-        hours_pipeline = [
-            {'$match': {'monthly_hours': {'$exists': True}}},
-            {'$group': {'_id': None, 'avg_hours': {'$avg': '$monthly_hours'}}}
-        ]
-        hours_result = list(self.jobs.aggregate(hours_pipeline))
-        if hours_result:
-            avg_hours = round(hours_result[0]['avg_hours'], 2)
-            
-        # Statystyki systemów pracy
-        work_schedules = {}
-        for ws in self.jobs.aggregate([
-            {'$match': {'work_schedule': {'$exists': True}}},
-            {'$group': {'_id': '$work_schedule', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}}
-        ]):
-            work_schedules[ws['_id']] = ws['count']
-            
-        # Analiza zakresu wynagrodzeń
-        salary_ranges = {
-            'min': {'$min': '$salary_range.min'},
-            'max': {'$max': '$salary_range.max'},
-            'avg_min': {'$avg': '$salary_range.min'},
-            'avg_max': {'$avg': '$salary_range.max'}
-        }
-        salary_range_stats = self.jobs.aggregate([
-            {'$match': {'salary_range': {'$exists': True}}},
-            {'$group': {'_id': None, **salary_ranges}}
-        ])
-        salary_range_stats = list(salary_range_stats)
-        if salary_range_stats:
-            salary_range_stats = salary_range_stats[0]
-            del salary_range_stats['_id']
-            # Zaokrąglamy wartości
-            for key in salary_range_stats:
-                if salary_range_stats[key]:
-                    salary_range_stats[key] = round(salary_range_stats[key], 2)
-        else:
-            salary_range_stats = None
-            
-        # Top 10 miast
-        top_cities = {}
-        for city in self.jobs.aggregate([
-            {'$match': {'city': {'$exists': True}}},
-            {'$group': {'_id': '$city', 'count': {'$sum': 1}}},
-            {'$sort': {'count': -1}},
-            {'$limit': 10}
-        ]):
-            top_cities[city['_id']] = city['count']
-            
-        return {
+        # Basic statistics
+        summary = {
             'total_jobs': total_jobs,
-            'unique_companies': unique_companies,
-            'unique_locations': unique_locations,
-            'top_sources': top_sources,
-            'jobs_by_location': jobs_by_location,
-            'most_active_companies': most_active_companies,
-            'contract_types': contract_types,
-            'work_modes': work_modes,
-            'industries': industries,
-            'position_levels': position_levels,
-            'benefits_distribution': benefits_distribution,
-            'salary_stats': salary_stats,
-            # Nowe statystyki
-            'foreign_jobs_count': foreign_jobs,
-            'average_monthly_hours': avg_hours,
-            'work_schedules': work_schedules,
-            'salary_range_statistics': salary_range_stats,
-            'top_cities': top_cities
+            'contract_types': df['contract_type'].value_counts().to_dict(),
+            'jobs_by_location': df['location'].value_counts().head(10).to_dict(),
+            'work_modes': df['work_mode'].value_counts().to_dict(),
+            'industries': df['industry'].value_counts().to_dict(),
+            'position_levels': df['position_level'].value_counts().to_dict(),
+            'benefits_distribution': df['benefits'].apply(pd.Series).stack().value_counts().to_dict() if 'benefits' in df else {},
+            'salary_stats': df['salary'].value_counts().to_dict(),
         }
+        
+        # Advanced Pandas Statistics
+        if 'salary_range' in df.columns:
+            salary_df = pd.json_normalize(df['salary_range'].dropna())
+            if not salary_df.empty:
+                summary['advanced_salary_stats'] = {
+                    'mean_min_salary': int(salary_df['min'].mean()),
+                    'mean_max_salary': int(salary_df['max'].mean()),
+                    'median_min_salary': int(salary_df['min'].median()),
+                    'median_max_salary': int(salary_df['max'].median()),
+                    'std_min_salary': int(salary_df['min'].std()),
+                    'std_max_salary': int(salary_df['max'].std())
+                }
+        
+        # Work Time Analysis
+        if 'work_time' in df.columns:
+            summary['work_time_analysis'] = df['work_time'].value_counts().to_dict()
+        
+        # Industry Trends
+        if 'industry' in df.columns and 'date_posted' in df.columns:
+            df['date_posted'] = pd.to_datetime(df['date_posted'], dayfirst=True)
+            industry_by_date = df.groupby(['industry', df['date_posted'].dt.date]).size().unstack()
+            summary['industry_trends'] = {
+                'most_active_day': industry_by_date.sum().idxmax().strftime('%Y-%m-%d'),
+                'top_growing_industries': industry_by_date.iloc[:, -1].nlargest(5).index.tolist()
+            }
+        
+        # Location Analysis
+        if 'location' in df.columns:
+            location_stats = df['location'].value_counts()
+            summary['location_analysis'] = {
+                'unique_locations': len(location_stats),
+                'top_10_locations': location_stats.head(10).to_dict(),
+                'location_distribution': {
+                    'top_25_percent': len(location_stats[location_stats >= location_stats.quantile(0.75)]),
+                    'middle_50_percent': len(location_stats[location_stats.between(location_stats.quantile(0.25), location_stats.quantile(0.75), inclusive='both')]),
+                    'bottom_25_percent': len(location_stats[location_stats <= location_stats.quantile(0.25)])
+                }
+            }
+        
+        return summary
         
     def __del__(self):
         """Zamykamy połączenie z bazą przy usuwaniu obiektu"""

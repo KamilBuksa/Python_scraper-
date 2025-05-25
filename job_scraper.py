@@ -78,7 +78,6 @@ class JobScraper:
             # Combine all information
             job_data = {
                 'title': title,
-                'company': company or job_details.get('company'),
                 'location': location or job_details.get('location'),
                 'url': url,
                 'salary': salary or job_details.get('salary'),

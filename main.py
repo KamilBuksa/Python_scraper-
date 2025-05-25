@@ -51,24 +51,13 @@ def main():
         
         print(f"Total jobs in database: {summary['total_jobs']}")
         
-        if summary['average_monthly_hours']:
-            print(f"\nAverage monthly hours: {summary['average_monthly_hours']}")
-            
-        if summary['salary_range_statistics']:
-            print("\nSalary statistics (PLN):")
-            stats = summary['salary_range_statistics']
-            print(f"- Minimum salary: {stats['min']:,.2f}")
-            print(f"- Maximum salary: {stats['max']:,.2f}")
-            print(f"- Average minimum: {stats['avg_min']:,.2f}")
-            print(f"- Average maximum: {stats['avg_max']:,.2f}")
+        print("\nTop Contract Types:")
+        for contract_type, count in summary['contract_types'].items():
+            print(f"- {contract_type}: {count}")
             
         print("\nTop 10 locations:")
         for location, count in summary['jobs_by_location'].items():
             print(f"- {location}: {count}")
-            
-        print("\nContract types:")
-        for contract_type, count in summary['contract_types'].items():
-            print(f"- {contract_type}: {count}")
             
         print("\nWork modes:")
         for work_mode, count in summary['work_modes'].items():
@@ -82,13 +71,38 @@ def main():
         for level, count in summary['position_levels'].items():
             print(f"- {level}: {count}")
             
-        print("\nBenefits distribution:")
-        for benefit, count in summary['benefits_distribution'].items():
-            print(f"- {benefit}: {count}")
+        if 'benefits_distribution' in summary and summary['benefits_distribution']:
+            print("\nBenefits distribution:")
+            for benefit, count in summary['benefits_distribution'].items():
+                print(f"- {benefit}: {count}")
+                
+        if 'advanced_salary_stats' in summary:
+            print("\nAdvanced Salary Statistics (PLN):")
+            stats = summary['advanced_salary_stats']
+            print(f"- Mean salary range: {stats['mean_min_salary']:,} - {stats['mean_max_salary']:,}")
+            print(f"- Median salary range: {stats['median_min_salary']:,} - {stats['median_max_salary']:,}")
+            print(f"- Salary standard deviation: {stats['std_min_salary']:,} - {stats['std_max_salary']:,}")
             
-        print("\nSalary statistics:")
-        for salary, count in summary['salary_stats'].items():
-            print(f"- {salary}: {count}")
+        if 'work_time_analysis' in summary:
+            print("\nWork Time Distribution:")
+            for time, count in summary['work_time_analysis'].items():
+                print(f"- {time}: {count}")
+                
+        if 'industry_trends' in summary:
+            print("\nIndustry Trends:")
+            print(f"- Most active day: {summary['industry_trends']['most_active_day']}")
+            print("- Top growing industries:")
+            for industry in summary['industry_trends']['top_growing_industries']:
+                print(f"  * {industry}")
+                
+        if 'location_analysis' in summary:
+            print("\nLocation Analysis:")
+            print(f"- Unique locations: {summary['location_analysis']['unique_locations']}")
+            print("- Location distribution:")
+            dist = summary['location_analysis']['location_distribution']
+            print(f"  * Top 25% locations: {dist['top_25_percent']}")
+            print(f"  * Middle 50% locations: {dist['middle_50_percent']}")
+            print(f"  * Bottom 25% locations: {dist['bottom_25_percent']}")
             
     except Exception as e:
         print(f"An error occurred: {e}")
