@@ -7,7 +7,6 @@ from typing import Dict, Any, List, Optional
 import time
 import random
 import json
-import os
 
 class BookScraper:
     """Scraper for empik.com book store"""
@@ -32,11 +31,6 @@ class BookScraper:
         self.collection = self.db['books']
         self.html_collection = self.db['raw_html']
         print("Connected to MongoDB")
-        
-        # Create directory for HTML files if it doesn't exist
-        self.html_dir = "scraped_html"
-        if not os.path.exists(self.html_dir):
-            os.makedirs(self.html_dir)
 
     def extract_apollo_state(self, html_content: str) -> Optional[Dict]:
         """Extract Apollo state JSON from HTML"""
@@ -167,8 +161,17 @@ class BookScraper:
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
             
-            # Save raw HTML
-            self.save_html(url, response.text)
+            # Save raw HTML to MongoDB only
+            html_doc = {
+                "url": url,
+                "html": response.text,
+                "saved_at": datetime.now()
+            }
+            self.html_collection.update_one(
+                {"url": url},
+                {"$set": html_doc},
+                upsert=True
+            )
             
             # Extract Apollo state
             apollo_state = self.extract_apollo_state(response.text)
@@ -190,34 +193,6 @@ class BookScraper:
         except Exception as e:
             print(f"Error processing book {url}: {e}")
             return False
-
-    def save_html(self, url: str, html_content: str) -> None:
-        """Save HTML content both to file and MongoDB"""
-        try:
-            # Generate filename from URL
-            filename = url.split("/")[-1].replace(",", "_") + ".html"
-            filepath = os.path.join(self.html_dir, filename)
-            
-            # Save to file
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            print(f"Saved HTML to file: {filepath}")
-            
-            # Save to MongoDB
-            html_doc = {
-                "url": url,
-                "html": html_content,
-                "saved_at": datetime.now()
-            }
-            self.html_collection.update_one(
-                {"url": url},
-                {"$set": html_doc},
-                upsert=True
-            )
-            print(f"Saved HTML to MongoDB")
-            
-        except Exception as e:
-            print(f"Error saving HTML for {url}: {e}")
 
     def get_book_urls(self, category: str, page: int = 1, limit: int = 10) -> List[str]:
         """Get book URLs from category page"""

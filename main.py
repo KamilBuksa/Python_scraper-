@@ -1,7 +1,7 @@
-from book_scraper.scraper import BookScraper
+from scraper import BookScraper
 import time
-import sys
 import random
+import sys
 
 def main():
     try:
@@ -70,17 +70,9 @@ def main():
             
     except KeyboardInterrupt:
         print("\nPrzerwano scrapowanie przez użytkownika")
-        try:
-            scraper.close()
-        except:
-            pass
         sys.exit(0)
     except Exception as e:
         print(f"\nWystąpił błąd: {e}")
-        try:
-            scraper.close()
-        except:
-            pass
         sys.exit(1)
 
 if __name__ == "__main__":
