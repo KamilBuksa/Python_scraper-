@@ -102,7 +102,7 @@ class JobScraper:
     def get_job_description(self, url):
         """Get full job description from the job's page"""
         try:
-            sleep(random.uniform(2, 4))
+            sleep(random.uniform(0, 0.5))  # Zmniejszony czas oczekiwania
             response = self.session.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -205,59 +205,53 @@ class JobScraper:
             print(f"Error getting job description: {e}")
             return {}
 
-    def scrape_jobs(self, num_pages=5, max_jobs=10, save_example=True):
+    def scrape_jobs(self, num_pages=5, max_jobs=10):
         """Scrape specified number of pages"""
         print(f"Starting to scrape jobs from trojmiasto.pl (max {max_jobs} jobs)...")
         
         total_jobs_scraped = 0
+        errors = 0
         
         for page in range(1, num_pages + 1):
             if total_jobs_scraped >= max_jobs:
                 break
                 
-            soup = self.get_page(page)
-            if not soup:
-                continue
+            try:
+                soup = self.get_page(page)
+                if not soup:
+                    print(f"\nSkipping page {page} due to error")
+                    continue
+                    
+                # Find all job listings on the page
+                job_listings = soup.find_all('div', class_='list__item')
+                print(f"\nFound {len(job_listings)} jobs on page {page}")
                 
-            # Find all job listings on the page
-            job_listings = soup.find_all('div', class_='list__item')
-            print(f"Found {len(job_listings)} jobs on page {page}")
-            
-            # Save example HTML if requested
-            if save_example and page == 1 and job_listings:
-                first_job = job_listings[0]
-                job_url = first_job.find('a')['href']
-                if not job_url.startswith('http'):
-                    job_url = 'https://ogloszenia.trojmiasto.pl' + job_url
-                self.save_example_html(job_url)
-            
-            for job_item in job_listings:
-                if total_jobs_scraped >= max_jobs:
-                    break
+                for job_item in job_listings:
+                    if total_jobs_scraped >= max_jobs:
+                        break
+                        
+                    try:
+                        job_data = self.parse_job_listing(job_item)
+                        if job_data:
+                            self.jobs.append(job_data)
+                            total_jobs_scraped += 1
+                            print(f"Progress: {total_jobs_scraped}/{max_jobs} jobs scraped", end='\r')
+                    except Exception as e:
+                        errors += 1
+                        print(f"\nError parsing job listing: {e}")
+                        continue
                     
-                job_data = self.parse_job_listing(job_item)
-                if job_data:
-                    self.jobs.append(job_data)
-                    total_jobs_scraped += 1
-                    
-            sleep(random.uniform(2, 4))
+                sleep(random.uniform(0, 0.5))  # Zmniejszony czas oczekiwania
+                
+            except Exception as e:
+                errors += 1
+                print(f"\nError scraping page {page}: {e}")
+                continue
             
-        print(f"Scraped {total_jobs_scraped} jobs in total")
+        print(f"\nScraped {total_jobs_scraped} jobs in total")
+        if errors > 0:
+            print(f"Encountered {errors} errors during scraping")
         return self.jobs
-
-    def save_example_html(self, url, filename='example_job.html'):
-        """Save example HTML from a job details page"""
-        try:
-            print(f"Downloading example HTML from {url}")
-            response = self.session.get(url)
-            response.raise_for_status()
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(response.text)
-            print(f"Saved HTML to file {filename}")
-            
-        except Exception as e:
-            print(f"Error saving example HTML: {e}")
 
     def export_to_csv(self):
         """Export scraped jobs to CSV file"""

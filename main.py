@@ -6,10 +6,10 @@ from datetime import datetime
 def main():
     # Konfiguracja parsera argumentów
     parser = argparse.ArgumentParser(description='Scrape job listings from pracawgdansku.com.pl')
-    parser.add_argument('-p', '--pages', type=int, default=2,
-                      help='Number of pages to scrape (default: 2)')
-    parser.add_argument('-m', '--max-jobs', type=int, default=10,
-                      help='Maximum number of jobs to scrape (default: 10)')
+    parser.add_argument('-p', '--pages', type=int, default=6,
+                      help='Number of pages to scrape (default: 6)')
+    parser.add_argument('-m', '--max-jobs', type=int, default=60,
+                      help='Maximum number of jobs to scrape (default: 60)')
     parser.add_argument('-o', '--output', type=str,
                       default=f'jobs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
                       help='Output CSV file name (default: jobs_YYYYMMDD_HHMMSS.csv)')
