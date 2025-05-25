@@ -1,79 +1,119 @@
-from scraper import BookScraper
-import time
-import random
-import sys
+from job_scraper import JobScraper
+from db_manager import DatabaseManager
+import argparse
+from datetime import datetime
 
 def main():
+    # Konfiguracja parsera argumentów
+    parser = argparse.ArgumentParser(description='Scrape job listings from pracawgdansku.com.pl')
+    parser.add_argument('-p', '--pages', type=int, default=2,
+                      help='Number of pages to scrape (default: 2)')
+    parser.add_argument('-m', '--max-jobs', type=int, default=10,
+                      help='Maximum number of jobs to scrape (default: 10)')
+    parser.add_argument('-o', '--output', type=str,
+                      default=f'jobs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
+                      help='Output CSV file name (default: jobs_YYYYMMDD_HHMMSS.csv)')
+    parser.add_argument('--force-scrape', action='store_true',
+                      help='Force scraping even if data exists in database')
+    
+    args = parser.parse_args()
+    
     try:
-        # Initialize scraper
-        scraper = BookScraper()
+        # Inicjalizacja połączenia z bazą danych
+        db = DatabaseManager()
         
-        # Categories from empik.com (format: "path,category_id,s")
-        categories = [
-            "ksiazki/kryminal-sensacja-thriller,3175,s"  # Start with just one category
-        ]
+        # Sprawdzamy czy mamy już dane w bazie
+        existing_jobs = db.get_jobs_count()
         
-        books_processed = 0
-        max_books = 10
+        if existing_jobs == 0 or args.force_scrape:
+            # Jeśli baza jest pusta lub wymuszono scraping, pobieramy nowe dane
+            print("Starting job scraper...")
+            print(f"Will scrape max {args.max_jobs} jobs from up to {args.pages} pages")
+            
+            scraper = JobScraper()
+            scraper.scrape_jobs(num_pages=args.pages, max_jobs=args.max_jobs)
+            
+            # Zapisujemy wyniki do bazy
+            saved_count = db.save_jobs(scraper.jobs)
+            print(f"\nSaved {saved_count} jobs to database")
+        else:
+            print(f"Found {existing_jobs} jobs in database")
+            print("Use --force-scrape to force new data collection")
         
-        # Scrape each category
-        for category in categories:
-            print(f"\nScrapowanie kategorii: {category}")
+        # Eksportujemy dane z bazy do CSV
+        exported_count = db.export_to_csv(args.output)
+        print(f"Exported {exported_count} jobs to {args.output}")
+        
+        # Wyświetlenie podsumowania
+        print("\nScraping Summary:")
+        print("-" * 50)
+        summary = db.get_jobs_summary()
+        
+        print(f"Total jobs in database: {summary['total_jobs']}")
+        print(f"Unique companies: {summary['unique_companies']}")
+        print(f"Unique locations: {summary['unique_locations']}")
+        print(f"Jobs abroad: {summary['foreign_jobs_count']}")
+        
+        if summary['average_monthly_hours']:
+            print(f"\nAverage monthly hours: {summary['average_monthly_hours']}")
+        
+        print("\nTop 10 cities:")
+        for city, count in summary['top_cities'].items():
+            print(f"- {city}: {count}")
             
-            # Get books from first 2 pages
-            for page in range(1, 3):
-                if books_processed >= max_books:
-                    break
-                    
-                print(f"\nPrzetwarzanie strony {page}")
-                
-                # Get book URLs (limit per page to remaining books)
-                remaining_books = max_books - books_processed
-                book_urls = scraper.get_book_urls(
-                    category=category, 
-                    page=page,
-                    limit=remaining_books
-                )
-                
-                if not book_urls:
-                    print(f"Nie znaleziono książek na stronie {page}")
-                    continue
-                
-                # Process each book
-                for url in book_urls:
-                    if books_processed >= max_books:
-                        break
-                        
-                    print(f"\nPrzetwarzanie książki {books_processed + 1} z {max_books}: {url}")
-                    success = scraper.process_book(url)
-                    if success:
-                        books_processed += 1
-                    else:
-                        print(f"Nie udało się przetworzyć książki: {url}")
-                    
-                    # Random delay between books (2-4 seconds)
-                    time.sleep(random.uniform(2, 4))
-                
-                if books_processed >= max_books:
-                    break
-                    
-                # Longer delay between pages (4-6 seconds)
-                time.sleep(random.uniform(4, 6))
+        print("\nWork schedules:")
+        for schedule, count in summary['work_schedules'].items():
+            print(f"- {schedule}: {count}")
             
-            if books_processed >= max_books:
-                break
-                
-            # Even longer delay between categories (6-8 seconds)
-            time.sleep(random.uniform(6, 8))
+        if summary['salary_range_statistics']:
+            print("\nSalary statistics (PLN):")
+            stats = summary['salary_range_statistics']
+            print(f"- Minimum salary: {stats['min']:,.2f}")
+            print(f"- Maximum salary: {stats['max']:,.2f}")
+            print(f"- Average minimum: {stats['avg_min']:,.2f}")
+            print(f"- Average maximum: {stats['avg_max']:,.2f}")
             
-        print(f"\nZakończono scrapowanie. Przetworzono {books_processed} książek.")
+        print("\nTop 5 job sources:")
+        for source, count in summary['top_sources'].items():
+            print(f"- {source}: {count}")
             
-    except KeyboardInterrupt:
-        print("\nPrzerwano scrapowanie przez użytkownika")
-        sys.exit(0)
+        print("\nTop 10 locations:")
+        for location, count in summary['jobs_by_location'].items():
+            print(f"- {location}: {count}")
+            
+        print("\nMost active companies:")
+        for company, count in summary['most_active_companies'].items():
+            print(f"- {company}: {count}")
+            
+        print("\nContract types:")
+        for contract_type, count in summary['contract_types'].items():
+            print(f"- {contract_type}: {count}")
+            
+        print("\nWork modes:")
+        for work_mode, count in summary['work_modes'].items():
+            print(f"- {work_mode}: {count}")
+            
+        print("\nIndustries:")
+        for industry, count in summary['industries'].items():
+            print(f"- {industry}: {count}")
+            
+        print("\nPosition levels:")
+        for level, count in summary['position_levels'].items():
+            print(f"- {level}: {count}")
+            
+        print("\nBenefits distribution:")
+        for benefit, count in summary['benefits_distribution'].items():
+            print(f"- {benefit}: {count}")
+            
+        print("\nSalary statistics:")
+        for salary, count in summary['salary_stats'].items():
+            print(f"- {salary}: {count}")
+            
     except Exception as e:
-        print(f"\nWystąpił błąd: {e}")
-        sys.exit(1)
+        print(f"An error occurred: {e}")
+        return 1
+        
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    exit(main()) 
